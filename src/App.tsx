@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Markdown from 'react-markdown';
-import { Leaf, Send, Sparkles } from 'lucide-react';
+import { Leaf, Send, Sparkles, Mic, MicOff } from 'lucide-react';
 import { sendMessage, ChatMessage } from './lib/gemini';
 
 const INITIAL_MESSAGE: ChatMessage = {
@@ -24,8 +24,10 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
   const [plants, setPlants] = useState<string[]>([]);
   const [inputText, setInputText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,6 +77,40 @@ export default function App() {
 
   const handleOptionClick = (option: string) => {
     handleSend(option);
+  };
+
+  const startRecording = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("¡Vuestras mercedes, vuestro navegador no es compatible con el habla! 🌳");
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInputText(prev => prev + ' ' + transcript);
+      setIsRecording(false);
+    };
+
+    recognition.onerror = () => {
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
   };
 
   return (
@@ -196,6 +232,16 @@ export default function App() {
               className="flex-1 px-4 py-3 bg-gray-50 border border-green-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all shadow-inner text-gray-800 placeholder-gray-400"
               disabled={isLoading}
             />
+            <button
+              type="button"
+              onClick={startRecording}
+              className={`p-3 rounded-xl shadow-md transition-all flex items-center justify-center transform active:scale-95 ${
+                isRecording ? 'bg-red-500 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
+              disabled={isLoading || isRecording}
+            >
+              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            </button>
             <button
               type="submit"
               disabled={!inputText.trim() || isLoading}
